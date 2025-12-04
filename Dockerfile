@@ -1,21 +1,18 @@
 # build stage
-FROM golang:1.22-bullseye as builder
+FROM golang:1.25-alpine AS builder
 
 ARG GOPATH=/tmp/go
-RUN apt-get update -y \
-    && apt-get install -y upx libcap2-bin \
-    && go install github.com/goreleaser/goreleaser@latest
+
+RUN apk --no-cache add libcap2 libcap-setcap upx git && \
+    go install github.com/goreleaser/goreleaser/v2@v2.12.7
 
 WORKDIR /root/snd
 COPY . /root/snd/
 RUN  /tmp/go/bin/goreleaser build --config contrib/goreleaser/goreleaser.yaml --single-target --id "snd" --output "dist/snd" --snapshot --clean
 
 # production stage
-FROM debian:bullseye-slim
+FROM scratch
 LABEL org.opencontainers.image.authors="docker@public.swineson.me"
-
-# Import the user and group files from the builder.
-COPY --from=builder /etc/passwd /etc/group /etc/
 
 COPY --from=builder /root/snd/dist/snd /usr/local/bin/
 COPY --from=builder /root/snd/contrib/config/config.toml /etc/snd/
